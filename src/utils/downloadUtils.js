@@ -1,0 +1,198 @@
+/**
+ * Download diff as beautiful HTML file
+ * Creates a side-by-side visual comparison with red/green highlighting
+ */
+
+const escapeHtml = (text) => {
+  const map = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;'
+  };
+  return text.replace(/[&<>"']/g, m => map[m]);
+};
+
+export const downloadDiffAsHTML = (leftCode, rightCode) => {
+  const leftLines = leftCode.split('\n');
+  const rightLines = rightCode.split('\n');
+  const maxLines = Math.max(leftLines.length, rightLines.length);
+
+  let leftHTML = '';
+  let rightHTML = '';
+
+  for (let i = 0; i < maxLines; i++) {
+    const origLine = leftLines[i] !== undefined ? leftLines[i] : '';
+    const modLine = rightLines[i] !== undefined ? rightLines[i] : '';
+    const lineNum = i + 1;
+
+    if (origLine === modLine) {
+      // Unchanged line
+      leftHTML += `<div class="line unchanged"><span class="line-num">${lineNum}</span><span class="code">${escapeHtml(origLine)}</span></div>`;
+      rightHTML += `<div class="line unchanged"><span class="line-num">${lineNum}</span><span class="code">${escapeHtml(modLine)}</span></div>`;
+    } else {
+      // Changed/different lines
+      if (origLine !== '') {
+        leftHTML += `<div class="line deleted"><span class="line-num">${lineNum}</span><span class="code">${escapeHtml(origLine)}</span></div>`;
+      } else {
+        leftHTML += `<div class="line empty"><span class="line-num">${lineNum}</span><span class="code"></span></div>`;
+      }
+
+      if (modLine !== '') {
+        rightHTML += `<div class="line added"><span class="line-num">${lineNum}</span><span class="code">${escapeHtml(modLine)}</span></div>`;
+      } else {
+        rightHTML += `<div class="line empty"><span class="line-num">${lineNum}</span><span class="code"></span></div>`;
+      }
+    }
+  }
+
+  const htmlContent = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GitDiff Comparison - ${new Date().toLocaleDateString()}</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+      background: #1a2845;
+      color: white;
+      padding: 20px;
+    }
+    .header {
+      background: black;
+      padding: 20px;
+      margin-bottom: 20px;
+      border-radius: 8px;
+      border-bottom: 2px solid #374151;
+    }
+    .header h1 {
+      font-size: 24px;
+      margin-bottom: 10px;
+    }
+    .stats {
+      font-size: 14px;
+      color: #9ca3af;
+      display: flex;
+      gap: 20px;
+    }
+    .stats .added { color: #4ade80; }
+    .stats .deleted { color: #f87171; }
+    .container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-top: 20px;
+    }
+    .panel {
+      background: #d4d4d4;
+      border-radius: 8px;
+      border: 2px solid #4b5563;
+      overflow: hidden;
+    }
+    .panel-header {
+      background: #374151;
+      color: white;
+      padding: 12px 16px;
+      font-weight: bold;
+      font-size: 14px;
+    }
+    .code-container {
+      padding: 16px;
+      max-height: 800px;
+      overflow-y: auto;
+    }
+    .line {
+      display: flex;
+      padding: 2px 0;
+      font-size: 13px;
+    }
+    .line-num {
+      color: #6b7280;
+      width: 50px;
+      text-align: right;
+      padding-right: 12px;
+      user-select: none;
+      flex-shrink: 0;
+    }
+    .code {
+      white-space: pre;
+      flex: 1;
+      color: #1f2937;
+    }
+    .line.unchanged {
+      background: transparent;
+    }
+    .line.deleted {
+      background: #fee2e2;
+      border-left: 3px solid #ef4444;
+    }
+    .line.added {
+      background: #d1fae5;
+      border-left: 3px solid #10b981;
+    }
+    .line.empty {
+      background: #f3f4f6;
+      opacity: 0.5;
+    }
+    .footer {
+      text-align: center;
+      margin-top: 30px;
+      color: #9ca3af;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>GitDiff Comparison Report</h1>
+    <div class="stats">
+      <span>Generated: ${new Date().toLocaleString()}</span>
+      <span>Original: ${leftLines.length} lines</span>
+      <span>Modified: ${rightLines.length} lines</span>
+      <span class="added">+${Math.max(0, rightLines.length - leftLines.length)} Additions</span>
+      <span class="deleted">-${Math.max(0, leftLines.length - rightLines.length)} Deletions</span>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="panel">
+      <div class="panel-header">📄 Original Code</div>
+      <div class="code-container">
+        ${leftHTML}
+      </div>
+    </div>
+    
+    <div class="panel">
+      <div class="panel-header">📝 Modified Code</div>
+      <div class="code-container">
+        ${rightHTML}
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    Generated by GitDiff - Side-by-side code comparison tool
+  </div>
+</body>
+</html>
+  `;
+
+  // Create and trigger download
+  const blob = new Blob([htmlContent], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `gitdiff-comparison-${Date.now()}.html`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+};
