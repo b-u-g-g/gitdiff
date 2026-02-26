@@ -1,14 +1,19 @@
 /**
- * AI utilities — calls Groq directly from the browser.
+ * AI utilities — supports two providers:
+ *  - 'groq'   → qwen-2.5-coder-32b-instruct via Groq (uses VITE_GROQ_API_KEY)
+ *  - 'gemini' → Gemini 2.0 Flash via Google AI (uses user-supplied key)
  *
- * Setup: create a .env.local file in the project root with:
- *   VITE_GROQ_API_KEY=your_groq_key_here
+ * Setup for Groq (free model): create .env.local with VITE_GROQ_API_KEY=your_key
+ * Get a free Groq key at: console.groq.com
  *
- * Get a free key at: console.groq.com (no credit card required)
+ * Setup for Gemini: user pastes their key in the AI provider modal.
+ * Get a free Gemini key at: aistudio.google.com/apikey
  */
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
-const MODEL = 'deepseek-r1-distill-llama-70b';
+const GROQ_MODEL = 'llama-3.3-70b-versatile';
+
+const GEMINI_MODEL = 'gemini-1.5-flash';
 
 const truncate = (code) =>
   code && code.length > 2000 ? code.slice(0, 2000) + '\n... (truncated)' : (code || '');
@@ -39,33 +44,13 @@ function stripThinkTags(text) {
   return text.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
 }
 
-/**
- * Explain a code change via Groq (called directly from the browser).
- *
- * @param {string} selectedCode
- * @param {string} _counterpartCode - unused
- * @param {number} _startLine - unused
- * @param {number} _endLine - unused
- * @param {'modified'|'original'} selectionSource
- *   'modified' = green lines (added), 'original' = red lines (removed)
- * @returns {Promise<{ explanation: string }>}
- */
-export async function explainCodeChange(
-  selectedCode,
-  _counterpartCode,
-  _startLine,
-  _endLine,
-  selectionSource = 'modified'
-) {
+async function callGroq(prompt) {
   const apiKey = import.meta.env.VITE_GROQ_API_KEY;
   if (!apiKey) {
     throw new Error(
       'VITE_GROQ_API_KEY is not set. Create a .env.local file with VITE_GROQ_API_KEY=your_key.'
     );
   }
-
-  const changeType = selectionSource === 'modified' ? 'added' : 'removed';
-  const prompt = buildPrompt(truncate(selectedCode), changeType);
 
   const response = await fetch(GROQ_API_URL, {
     method: 'POST',
@@ -74,7 +59,7 @@ export async function explainCodeChange(
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: MODEL,
+      model: GROQ_MODEL,
       messages: [{ role: 'user', content: prompt }],
       max_tokens: 512,
       temperature: 0.3,
@@ -82,20 +67,72 @@ export async function explainCodeChange(
   });
 
   const data = await response.json().catch(() => ({}));
-
   if (!response.ok) {
     throw new Error(data?.error?.message || `Groq error: ${response.status}`);
   }
 
   const raw = data?.choices?.[0]?.message?.content;
-  if (!raw) {
-    throw new Error('Groq returned no content. Please try again.');
+  if (!raw) throw new Error('Groq returned no content. Please try again.');
+
+  return stripThinkTags(raw);
+}
+
+async function callGemini(prompt, apiKey) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { maxOutputTokens: 512, temperature: 0.3 },
+    }),
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const msg = data?.error?.message || `Gemini error: ${response.status}`;
+    throw new Error(msg);
   }
 
-  const explanation = stripThinkTags(raw);
-  if (!explanation) {
-    throw new Error('Model returned only reasoning with no final answer. Please try again.');
+  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) throw new Error('Gemini returned no content. Please try again.');
+
+  return text.trim();
+}
+
+/**
+ * Explain a code change using the selected AI provider.
+ *
+ * @param {string} selectedCode
+ * @param {string} _counterpartCode - unused
+ * @param {number} _startLine - unused
+ * @param {number} _endLine - unused
+ * @param {'modified'|'original'} selectionSource
+ * @param {'groq'|'gemini'} provider
+ * @param {string|null} geminiKey - required when provider is 'gemini'
+ * @returns {Promise<{ explanation: string }>}
+ */
+export async function explainCodeChange(
+  selectedCode,
+  _counterpartCode,
+  _startLine,
+  _endLine,
+  selectionSource = 'modified',
+  provider = 'groq',
+  geminiKey = null
+) {
+  const changeType = selectionSource === 'modified' ? 'added' : 'removed';
+  const prompt = buildPrompt(truncate(selectedCode), changeType);
+
+  let explanation;
+  if (provider === 'gemini') {
+    if (!geminiKey) throw new Error('No Gemini API key provided.');
+    explanation = await callGemini(prompt, geminiKey);
+  } else {
+    explanation = await callGroq(prompt);
   }
 
+  if (!explanation) throw new Error('No explanation returned. Please try again.');
   return { explanation };
 }

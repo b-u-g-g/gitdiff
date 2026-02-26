@@ -4,6 +4,7 @@ import { GitCompare, RotateCcw, ArrowLeftRight, Download, Sparkles } from 'lucid
 import { downloadDiffAsHTML } from './utils/downloadUtils';
 import { explainCodeChange } from './utils/aiUtils';
 import AIExplainPanel from './components/AIExplainPanel';
+import AIProviderModal from './components/AIProviderModal';
 
 function App() {
   const [leftCode, setLeftCode] = useState('');
@@ -20,6 +21,11 @@ function App() {
   const [aiExplanation, setAiExplanation] = useState('');
   const [aiError, setAiError] = useState(null);
   const diffEditorRef = useRef(null);
+
+  // AI Provider state — persisted in localStorage
+  const [aiProvider, setAiProvider] = useState(() => localStorage.getItem('gitdiff_ai_provider') || null);
+  const [geminiKey, setGeminiKey] = useState(() => localStorage.getItem('gitdiff_gemini_key') || '');
+  const [showProviderModal, setShowProviderModal] = useState(false);
 
   const editorOptions = {
     fontSize: 14,
@@ -45,6 +51,46 @@ function App() {
     setAiCounterpartCode('');
     setAiExplanation('');
     setAiError(null);
+  };
+
+  const handleAiModeToggle = () => {
+    if (!aiModeActive && !aiProvider) {
+      // First time — show provider selection modal
+      setShowProviderModal(true);
+    } else {
+      setAiModeActive(v => !v);
+    }
+  };
+
+  const handleProviderSelect = (provider, key) => {
+    localStorage.setItem('gitdiff_ai_provider', provider);
+    if (key) localStorage.setItem('gitdiff_gemini_key', key);
+    setAiProvider(provider);
+    setGeminiKey(key || '');
+    setShowProviderModal(false);
+    setAiModeActive(true);
+  };
+
+  const handleSwitchProvider = (provider) => {
+    if (provider === 'groq') {
+      // Switch to Groq immediately — no key needed
+      localStorage.setItem('gitdiff_ai_provider', 'groq');
+      setAiProvider('groq');
+      setAiExplanation('');
+      setAiError(null);
+    } else {
+      // Switch to Gemini — use stored key if available, else open modal
+      const storedKey = localStorage.getItem('gitdiff_gemini_key');
+      if (storedKey) {
+        localStorage.setItem('gitdiff_ai_provider', 'gemini');
+        setAiProvider('gemini');
+        setGeminiKey(storedKey);
+        setAiExplanation('');
+        setAiError(null);
+      } else {
+        setShowProviderModal(true);
+      }
+    }
   };
 
   const handleDiffEditorMount = (editor) => {
@@ -110,7 +156,9 @@ function App() {
         aiCounterpartCode,
         aiSelectionLines.start,
         aiSelectionLines.end,
-        aiSelectionSource
+        aiSelectionSource,
+        aiProvider,
+        geminiKey
       );
       setAiExplanation(explanation);
     } catch (err) {
@@ -136,7 +184,7 @@ function App() {
             {/* AI Mode Button - Only shows in diff view */}
             {showDiff && (
               <button
-                onClick={() => setAiModeActive(v => !v)}
+                onClick={handleAiModeToggle}
                 className={`flex items-center gap-2 px-5 py-2.5 text-sm rounded border transition-colors font-medium
                   ${aiModeActive
                     ? 'bg-purple-700 hover:bg-purple-600 border-purple-500 text-white'
@@ -276,7 +324,17 @@ function App() {
         isGenerating={aiGenerating}
         error={aiError}
         onClose={() => setAiModeActive(false)}
+        aiProvider={aiProvider}
+        onSwitchProvider={handleSwitchProvider}
       />
+
+      {/* Provider selection modal */}
+      {showProviderModal && (
+        <AIProviderModal
+          onSelect={handleProviderSelect}
+          onClose={() => setShowProviderModal(false)}
+        />
+      )}
     </div>
   );
 }

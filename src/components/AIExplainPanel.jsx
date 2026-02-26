@@ -12,6 +12,8 @@ const AIExplainPanel = ({
   isGenerating,
   error,
   onClose,
+  aiProvider,
+  onSwitchProvider,
 }) => {
   if (!isOpen) return null;
 
@@ -141,11 +143,29 @@ const AIExplainPanel = ({
         </div>
       </div>
 
-      {/* Footer */}
-      <div className="px-6 py-2 border-t border-gray-800/60">
-        <p className="text-xs text-gray-600">
-          Powered by DeepSeek-R1 · Groq · Free
-        </p>
+      {/* Footer — provider toggle */}
+      <div className="px-6 py-2 border-t border-gray-800/60 flex items-center gap-2">
+        <span className="text-xs text-gray-600 mr-1">AI:</span>
+        <button
+          onClick={() => onSwitchProvider('groq')}
+          className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+            aiProvider !== 'gemini'
+              ? 'bg-purple-800/70 border-purple-500/60 text-purple-200'
+              : 'border-gray-700/50 text-gray-500 hover:text-gray-300 hover:border-gray-600'
+          }`}
+        >
+          Free · Groq
+        </button>
+        <button
+          onClick={() => onSwitchProvider('gemini')}
+          className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+            aiProvider === 'gemini'
+              ? 'bg-blue-800/70 border-blue-500/60 text-blue-200'
+              : 'border-gray-700/50 text-gray-500 hover:text-gray-300 hover:border-gray-600'
+          }`}
+        >
+          Gemini · My Key
+        </button>
       </div>
     </div>
   );
