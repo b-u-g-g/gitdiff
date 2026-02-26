@@ -105,7 +105,7 @@ function App() {
     setAiExplanation('');
     setAiError(null);
     try {
-      const explanation = await explainCodeChange(
+      const { explanation } = await explainCodeChange(
         aiSelectedCode,
         aiCounterpartCode,
         aiSelectionLines.start,

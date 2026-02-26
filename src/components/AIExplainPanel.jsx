@@ -2,8 +2,7 @@ import React from 'react';
 import { Sparkles, X, Loader2, AlertCircle } from 'lucide-react';
 
 /**
- * AIExplainPanel — fixed bottom drawer that shows AI explanations for selected diff lines.
- * Appears when AI Mode is active. User selects code in the diff → clicks Explain → AI explains.
+ * AIExplainPanel — fixed bottom drawer for AI code change explanations.
  */
 const AIExplainPanel = ({
   isOpen,
@@ -34,7 +33,7 @@ const AIExplainPanel = ({
           <Sparkles size={15} className="text-purple-400" />
           <span className="text-sm font-semibold text-white">AI Explain</span>
           <span className="text-xs text-gray-500 ml-1">
-            {hasSelection ? `Lines selected` : 'Select code above'}
+            {hasSelection ? 'Lines selected' : 'Select code above'}
           </span>
         </div>
         <button
@@ -83,7 +82,7 @@ const AIExplainPanel = ({
           {/* No selection */}
           {!hasSelection && !isGenerating && !explanation && !error && (
             <p className="text-xs text-gray-500 leading-relaxed">
-              Select a block of code in the diff editor, then click "Explain this change" to get an AI explanation of what changed and why.
+              Select a block of code in the diff editor, then click "Explain this change" to understand what changed and why.
             </p>
           )}
 
@@ -145,7 +144,7 @@ const AIExplainPanel = ({
       {/* Footer */}
       <div className="px-6 py-2 border-t border-gray-800/60">
         <p className="text-xs text-gray-600">
-          Powered by Pollinations.ai · Free · Runs in your browser · Requires internet
+          Powered by DeepSeek-R1 · Groq · Free
         </p>
       </div>
     </div>

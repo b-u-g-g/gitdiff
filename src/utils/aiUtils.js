@@ -1,86 +1,101 @@
 /**
- * AI utilities using Pollinations.ai GET API — free, no API key required.
- * Uses GET endpoint which works correctly for anonymous users (POST /openai was returning
- * only a deprecation notice with no actual explanation).
+ * AI utilities — calls Groq directly from the browser.
+ *
+ * Setup: create a .env.local file in the project root with:
+ *   VITE_GROQ_API_KEY=your_groq_key_here
+ *
+ * Get a free key at: console.groq.com (no credit card required)
  */
 
-const POLLINATIONS_BASE = 'https://text.pollinations.ai/';
+const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
+const MODEL = 'deepseek-r1-distill-llama-70b';
 
-const SYSTEM_PROMPT = `You are an expert code reviewer explaining git diffs. When given code blocks from a diff, explain:
-1. What exactly this line/block is doing in the new version (or was doing if removed)
-2. How it differs from the other version — what approach changed, what was added/removed
-3. Why this change matters (different technique, optimization, refactor, bug fix, etc.)
-
-Be concise — 3-5 sentences. Plain English, avoid unnecessary jargon.`;
-
-// Truncate long code snippets to keep the GET request URL within browser limits (~8000 chars).
 const truncate = (code) =>
-  code && code.length > 500 ? code.slice(0, 500) + '\n... (truncated)' : (code || '');
+  code && code.length > 2000 ? code.slice(0, 2000) + '\n... (truncated)' : (code || '');
 
-/**
- * Build the user prompt depending on which panel was selected.
- * @param {string} selectedCode - The code the user highlighted
- * @param {string} counterpartCode - The corresponding code from the other panel
- * @param {number} startLine
- * @param {number} endLine
- * @param {'modified'|'original'} selectionSource - 'modified' = green/added, 'original' = red/removed
- */
-export function buildUserPrompt(selectedCode, counterpartCode, startLine, endLine, selectionSource) {
-  if (selectionSource === 'modified') {
-    return (
-      `The user selected this block from the MODIFIED (new) code at lines ${startLine}–${endLine}:\n` +
-      `\`\`\`\n${truncate(selectedCode)}\n\`\`\`\n\n` +
-      `The ORIGINAL code at these lines (before the change) was:\n` +
-      `\`\`\`\n${truncate(counterpartCode) || '(empty — these lines did not exist in the original)'}\n\`\`\`\n\n` +
-      `Explain: what is this new code doing, and how does it differ from what was there before?`
-    );
-  } else {
-    return (
-      `The user selected this block from the ORIGINAL (old) code at lines ${startLine}–${endLine}:\n` +
-      `\`\`\`\n${truncate(selectedCode)}\n\`\`\`\n\n` +
-      `The REPLACEMENT code (what replaced it in the new version) is:\n` +
-      `\`\`\`\n${truncate(counterpartCode) || '(empty — these lines were deleted with no replacement)'}\n\`\`\`\n\n` +
-      `Explain: what was this removed code doing, and how does the replacement differ?`
-    );
+function buildPrompt(code, changeType) {
+  if (changeType === 'added') {
+    return `You are analyzing a Git diff. The following code was added.
+
+Explain briefly:
+1. What this code does
+2. What new behavior or capability it adds to the system
+
+Added code:
+${code}`;
   }
+
+  return `You are analyzing a Git diff. The following code was removed.
+
+Explain briefly:
+1. What this code was doing
+2. What behavior or functionality may change after its removal
+
+Removed code:
+${code}`;
+}
+
+function stripThinkTags(text) {
+  return text.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
 }
 
 /**
- * Call Pollinations.ai GET API to explain a code change.
- * Returns plain text directly — no JSON parsing needed.
+ * Explain a code change via Groq (called directly from the browser).
+ *
  * @param {string} selectedCode
- * @param {string} counterpartCode
- * @param {number} startLine
- * @param {number} endLine
+ * @param {string} _counterpartCode - unused
+ * @param {number} _startLine - unused
+ * @param {number} _endLine - unused
  * @param {'modified'|'original'} selectionSource
- * @returns {Promise<string>} explanation
+ *   'modified' = green lines (added), 'original' = red lines (removed)
+ * @returns {Promise<{ explanation: string }>}
  */
-export async function explainCodeChange(selectedCode, counterpartCode, startLine, endLine, selectionSource = 'modified') {
-  const userPrompt = buildUserPrompt(selectedCode, counterpartCode, startLine, endLine, selectionSource);
+export async function explainCodeChange(
+  selectedCode,
+  _counterpartCode,
+  _startLine,
+  _endLine,
+  selectionSource = 'modified'
+) {
+  const apiKey = import.meta.env.VITE_GROQ_API_KEY;
+  if (!apiKey) {
+    throw new Error(
+      'VITE_GROQ_API_KEY is not set. Create a .env.local file with VITE_GROQ_API_KEY=your_key.'
+    );
+  }
 
-  const url =
-    POLLINATIONS_BASE +
-    encodeURIComponent(userPrompt) +
-    '?model=openai&temperature=0.3&system=' +
-    encodeURIComponent(SYSTEM_PROMPT);
+  const changeType = selectionSource === 'modified' ? 'added' : 'removed';
+  const prompt = buildPrompt(truncate(selectedCode), changeType);
 
-  const response = await fetch(url);
+  const response = await fetch(GROQ_API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: MODEL,
+      messages: [{ role: 'user', content: prompt }],
+      max_tokens: 512,
+      temperature: 0.3,
+    }),
+  });
+
+  const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    throw new Error(`AI service error: ${response.status} ${response.statusText}`);
+    throw new Error(data?.error?.message || `Groq error: ${response.status}`);
   }
 
-  const text = await response.text();
-
-  // Safety net: strip deprecation notice if ever injected into plain-text responses.
-  const noticeEnd = text.indexOf('will continue to work normally.');
-  if (noticeEnd !== -1) {
-    const stripped = text.slice(noticeEnd + 'will continue to work normally.'.length).trim();
-    if (!stripped) throw new Error('AI service is busy. Please try again in a moment.');
-    return stripped;
+  const raw = data?.choices?.[0]?.message?.content;
+  if (!raw) {
+    throw new Error('Groq returned no content. Please try again.');
   }
 
-  if (!text.trim()) throw new Error('AI service returned no content. Please try again.');
+  const explanation = stripThinkTags(raw);
+  if (!explanation) {
+    throw new Error('Model returned only reasoning with no final answer. Please try again.');
+  }
 
-  return text.trim();
+  return { explanation };
 }
