@@ -6,7 +6,6 @@ Instead of scanning raw diffs, developers get a clean, side-by-side view with cl
 
 **Live demo:** [https://gitdiff.vercel.app/](https://gitdiff.vercel.app/)
 
----
 
 ## Why this exists
 
@@ -17,7 +16,6 @@ But during reviews or debugging, the real question is:
 
 GitDiff was built to make code comparison faster, clearer, and distraction-free. The focus is on simplicity, speed, and a clean developer experience.
 
----
 
 ## Key Features
 
@@ -30,7 +28,6 @@ GitDiff was built to make code comparison faster, clearer, and distraction-free.
 * Reset editors instantly
 * Clean, distraction-free UI
 
----
 
 ## Tech Stack
 
@@ -39,8 +36,6 @@ GitDiff was built to make code comparison faster, clearer, and distraction-free.
 * Monaco Editor
 * Tailwind CSS
 * Lucide Icons
-
----
 
 ## Getting Started
 
@@ -70,8 +65,6 @@ Open:
    * **Swap** to exchange editors
    * **Reset** to clear both sides
 
----
-
 ## Product Thinking (PM Perspective)
 
 ### Target Users
@@ -87,8 +80,6 @@ Open:
 * **Local-first experience** – no repo setup required
 * **Fast rendering** for large files
 * **Familiar environment** using Monaco (VS Code feel)
-
----
 
 ## Key Trade-offs
 
@@ -112,7 +103,6 @@ Chosen: clean interface
 Trade-off: fewer advanced controls
 Benefit: faster learning curve and better usability
 
----
 
 ## Limitations
 
@@ -120,8 +110,6 @@ Benefit: faster learning curve and better usability
 * No file history or version tracking
 * Performance may degrade with extremely large files
 * Single-file comparison only
-
----
 
 ## Future Roadmap
 
@@ -133,7 +121,6 @@ Benefit: faster learning curve and better usability
 * Keyboard shortcuts
 * Drag-and-drop file upload
 
----
 
 ## Why this project matters
 
@@ -143,8 +130,6 @@ Built alongside college to explore:
 * Performance-focused frontend architecture
 * Product decision-making and trade-offs
 * Real-world usability over feature overload
-
----
 
 ## Feedback
 
