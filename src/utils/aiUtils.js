@@ -1,19 +1,9 @@
-/**
- * AI utilities — supports two providers:
- *  - 'groq'   → qwen-2.5-coder-32b-instruct via Groq (uses VITE_GROQ_API_KEY)
- *  - 'gemini' → Gemini 2.0 Flash via Google AI (uses user-supplied key)
- *
- * Setup for Groq (free model): create .env.local with VITE_GROQ_API_KEY=your_key
- * Get a free Groq key at: console.groq.com
- *
- * Setup for Gemini: user pastes their key in the AI provider modal.
- * Get a free Gemini key at: aistudio.google.com/apikey
- */
+
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const GROQ_MODEL = 'llama-3.3-70b-versatile';
 
-const GEMINI_MODEL = 'gemini-1.5-flash';
+const GEMINI_MODEL = 'gemini-2.0-flash';
 
 const truncate = (code) =>
   code && code.length > 2000 ? code.slice(0, 2000) + '\n... (truncated)' : (code || '');
@@ -78,7 +68,7 @@ async function callGroq(prompt) {
 }
 
 async function callGemini(prompt, apiKey) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
+  const url = `https://generativelanguage.googleapis.com/v1/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
 
   const response = await fetch(url, {
     method: 'POST',

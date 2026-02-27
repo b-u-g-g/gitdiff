@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { Editor, DiffEditor } from '@monaco-editor/react';
 import { GitCompare, RotateCcw, ArrowLeftRight, Download, Sparkles } from 'lucide-react';
 import { downloadDiffAsHTML } from './utils/downloadUtils';
@@ -326,6 +326,7 @@ function App() {
         onClose={() => setAiModeActive(false)}
         aiProvider={aiProvider}
         onSwitchProvider={handleSwitchProvider}
+        onChangeGeminiKey={() => setShowProviderModal(true)}
       />
 
       {/* Provider selection modal */}

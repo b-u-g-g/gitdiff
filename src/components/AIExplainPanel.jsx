@@ -1,6 +1,69 @@
 import React from 'react';
 import { Sparkles, X, Loader2, AlertCircle } from 'lucide-react';
 
+/** Render inline bold: **text** → <strong> */
+function renderInline(text, key) {
+  const parts = text.split('**');
+  return (
+    <span key={key}>
+      {parts.map((part, i) =>
+        i % 2 === 1
+          ? <strong key={i} className="text-white font-semibold">{part}</strong>
+          : <span key={i}>{part}</span>
+      )}
+    </span>
+  );
+}
+
+/** Parse markdown-lite into JSX: numbered lists, bold, paragraphs */
+function renderMarkdown(text) {
+  const lines = text.split('\n');
+  const elements = [];
+  let listItems = [];
+  let listKey = 0;
+
+  const flushList = () => {
+    if (listItems.length === 0) return;
+    elements.push(
+      <ol key={`list-${listKey++}`} className="flex flex-col gap-1.5 mt-1">
+        {listItems}
+      </ol>
+    );
+    listItems = [];
+  };
+
+  lines.forEach((line, i) => {
+    const trimmed = line.trim();
+
+    if (!trimmed) {
+      // Blank line — flush any open list, add spacing
+      flushList();
+      return;
+    }
+
+    const listMatch = trimmed.match(/^(\d+)\.\s+(.*)/);
+    if (listMatch) {
+      const [, num, content] = listMatch;
+      listItems.push(
+        <li key={i} className="flex gap-2 text-sm text-gray-200 leading-relaxed">
+          <span className="text-purple-400 font-semibold flex-shrink-0 w-4">{num}.</span>
+          <span>{renderInline(content, i)}</span>
+        </li>
+      );
+    } else {
+      flushList();
+      elements.push(
+        <p key={i} className="text-sm text-gray-300 leading-relaxed">
+          {renderInline(trimmed, i)}
+        </p>
+      );
+    }
+  });
+
+  flushList();
+  return <div className="flex flex-col gap-2">{elements}</div>;
+}
+
 /**
  * AIExplainPanel — fixed bottom drawer for AI code change explanations.
  */
@@ -14,6 +77,7 @@ const AIExplainPanel = ({
   onClose,
   aiProvider,
   onSwitchProvider,
+  onChangeGeminiKey,
 }) => {
   if (!isOpen) return null;
 
@@ -110,7 +174,7 @@ const AIExplainPanel = ({
           {/* Explanation */}
           {explanation && !isGenerating && (
             <div className="flex-1 overflow-auto flex flex-col gap-3">
-              <p className="text-sm text-gray-200 leading-relaxed">{explanation}</p>
+              {renderMarkdown(explanation)}
               {hasSelection && (
                 <button
                   onClick={onExplain}
@@ -166,6 +230,14 @@ const AIExplainPanel = ({
         >
           Gemini · My Key
         </button>
+        {aiProvider === 'gemini' && (
+          <button
+            onClick={onChangeGeminiKey}
+            className="text-xs text-gray-600 hover:text-gray-400 transition-colors underline ml-1"
+          >
+            Change key
+          </button>
+        )}
       </div>
     </div>
   );
