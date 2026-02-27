@@ -8,7 +8,7 @@ Instead of scanning raw diffs, developers get a clean, side-by-side view with cl
 
 ---
 
-## Why this exists
+# Why this exists
 
 Standard diff tools show *what changed*.
 But during reviews or debugging, the real question is:
